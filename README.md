@@ -8,7 +8,8 @@ Parse Lesser Feasts and Fasts 2018 into json
 
 # Process:
 - x Find page separators: pdf has 584pp.: "\f"
-- Parse index to LFF2018 for authoritative date & name of each feast (Pp 7--18)
+- x Parse index to LFF2018 for authoritative date & name of each feast (Pp 7--18)
+- Verify index against pdf
 - How to choose slugs? Halfway manual?
 	- Find main page for each feast
 	- preceding page is bio
