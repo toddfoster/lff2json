@@ -39,7 +39,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
             continue
 
         # found index
-        if PP_INDEX[0] <= page and page <= PP_INDEX[1]:
+        if PP_INDEX[0] <= page <= PP_INDEX[1]:
             if len(l) < 3:
                 continue
 
@@ -87,7 +87,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
             continue
 
         # Past index
-        if PP_ENTRIES[0] <= page and page <= PP_ENTRIES[1]:
+        if PP_ENTRIES[0] <= page <= PP_ENTRIES[1]:
             # Odd pages have bio's; even pages have title, collects, lessons, preface
             # Paragraph breaks are difficult: look for period finising line before column 75?
             # Dates are at bottom of page. Check that they are in order.
@@ -108,13 +108,15 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
             if page == PP_ENTRIES[0]:
                 print(l)
 
-        
+
 print("{} pages processed".format(page))
 print(find_feast_by_date(feasts, "04", "14"))
 print(find_feast_by_date(feasts, "05", "17"))
 print(find_feast_by_date(feasts, "05", "31"))
 print(find_feast_by_date(feasts, "06", "15"))
 print(find_feast_by_date(feasts, "06", "29"))
+print(find_feast_by_date(feasts, "12", "17"))
+print(find_feast_by_date(feasts, "12", "31"))
 print("------------")
 #for f in feasts:
 #    print(f"{f['mm']}/{f['dd']}: {f['title']}")
