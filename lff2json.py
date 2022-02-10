@@ -1,17 +1,23 @@
 from calendar import month_name
+import re
 
-DEBUG_PAGE = 1318
+# TODO: Capture major feasts flag (all caps in index?)
+
+
 
 page = 0
+mismatches = 0
 PP_INDEX = (14, 25)
 PP_ENTRIES = (31, 578)
 SOJOURNER_BIO = (317, 319)
 EXTRA_XMAS_PP = (567, 568)
 
+COLLECT_RE = re.compile('^I[^rng]')
+
 characters = 0
 mayjune_day = 0
-BLANK_DAYS_IN_MAY = [6, 7, 10, 12, 14, 16, 18, 23, 27, 29, 30]
-BLANK_DAYS_IN_JUNE = [6, 7, 13, 20, 21, 23, 25, 27, 30]
+BLANK_DAYS_IN_MAY = (6, 7, 10, 12, 14, 16, 18, 23, 27, 29, 30)
+BLANK_DAYS_IN_JUNE = (6, 7, 13, 20, 21, 23, 25, 27, 30)
 months = []
 for m in month_name[1:]:
     months += [m.upper()]
@@ -22,18 +28,21 @@ def print_hex_chars(line_in):
     for c in line_in:
         print(f"{c}: {ord(c):02x}")
 
-dates_with_problem_titles=["0126", "0525", "0909", "0927"]
+DEBUG_PAGE = 1000
+DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0909", "0927")
 def find_feast_by_date_and_title(feasts, mm, dd, title):
     for f in feasts:
         if f["mm"] == mm and f["dd"] == dd:
             if not title:
                 return f
-            if mm + dd in dates_with_problem_titles:
+            if mm + dd in DATES_WITH_PROBLEM_TITLES:
                 return f
             if page >= DEBUG_PAGE:
-                print (f"--find_feast_by_date_and_title p.{page} - {mm} {dd} {title}: {f['title'][0:6].upper()}")
-            if title[0:4].upper() == f["title"][0:4].upper():
+                print (f"DEBUG: find_feast_by_date_and_title p.{page} - {mm} {dd} {title[0:4].upper()}")
+                print (f"DEBUG: ----------------------------------------- {f['title'][0:4].upper()}")
+            if title[0:4].upper() == f['title'][0:4].upper():
                 return f
+    print (f"WARNING: find_feast_by_date_and_title failed on {mm}/{dd}: {title}")
 
 
 feasts = []
@@ -104,7 +113,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 # in each case, the second option is listed on a second line
                 # in the index. So set up an additional record for it.
                 if feast.find(" or") > 0:
-                    previous_record["title"] = feast.split(" or")[0]
+                    previous_record["title"] = feast.split(", or")[0]
                     feasts.append(previous_record)
                     previous_record = {
                         "mm": current_month,
@@ -152,21 +161,104 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     bio = (bio + " " + l).strip()
             # TODO Paragraph breaks are difficult: look for period finising line before column 75?
             else: #recto page with title, other data
-                if len(l) < 5:
-                    continue
+                mmdd = mm * 100 + dd
+                KEEP_LOOKING_LIST=(315, 416, 1016)
+                ####################################################
                 if recto_page_state == 0: # Looking for title
-                    previous_record = find_feast_by_date_and_title(feasts, f"{mm:02}", f"{dd:02}", l)
-                    assert previous_record, f"Couldn't locate record for {mm}/{dd} {l}"
+                    NO_COMMA_AFTER = (" and", " of", " Lord",
+                                      " Benedicta", " Blessed",
+                                      "Saint Philip", " Jesus")
+                    if (len(l) > 0 or mmdd in KEEP_LOOKING_LIST) and not COLLECT_RE.match(l):
+                        cumulative_line += ", " + l
+                        continue
+                    else:
+                        recto_page_state += 1
+                        assert len(cumulative_line) > 5, f"No title found on recto page {page}: {l}"
+                ####################################################
+                if recto_page_state == 1: # Check Titles
+                    # Clean up the assembled title
+                    cumulative_line = cumulative_line.replace(',,', ',')
+                    for s in NO_COMMA_AFTER:
+                        cumulative_line = cumulative_line.replace(s + ",", s)
+                    cumulative_line = cumulative_line.replace('  ', ' ')
+                    cumulative_line = cumulative_line.replace(', , ', ', ')
+                    cumulative_line = cumulative_line.strip(', ')
+                    cumulative_line = cumulative_line.strip()
+                    cumulative_line = cumulative_line.replace(
+                        '1349,Walter', '1349, Walter')
+                    cumulative_line = cumulative_line.replace(
+                        'Martyr 1942', 'Martyr, 1942')
+                    cumulative_line = cumulative_line.replace(
+                        '[Damien] Priest', '[Damien], Priest')
+                    cumulative_line = cumulative_line.replace(
+                        'Cope] Monastic', 'Cope], Monastic')
+
+                    previous_record = find_feast_by_date_and_title(
+                        feasts,
+                        f"{mm:02}",
+                        f"{dd:02}",
+                        cumulative_line
+                        )
+                    assert previous_record, f"Couldn't locate record for {mm}/{dd} {cumulative_line}"
+                    
+                    # Check title consistency; choose on mismatch
+                    def normalize(s):
+                        s =  s.upper()
+                        s = s.replace(']', '')
+                        s = s.replace('[', '')
+                        return s
+                    TITLE_MISMATCHES_TO_IGNORE = (114, 126, 210, 219, 415, 416, 421, 1109)
+                    PREFER_INDEX_TITLE = (201, 205, 214, 315, 628, 728, 909, 1014)
+                    if mmdd not in TITLE_MISMATCHES_TO_IGNORE and mmdd not in PREFER_INDEX_TITLE:
+                        index_title = normalize(previous_record['title'])
+                        mainp_title = normalize(cumulative_line)
+                        if index_title != mainp_title:
+                            mismatches += 1
+                            print (f"*** Mismatched name on {mm}/{dd}:")
+                            print (f"*** == index -> {index_title}")
+                            print (f"*** == mainp -> {mainp_title}")
+                    if mmdd not in PREFER_INDEX_TITLE:
+                        previous_record['title'] = cumulative_line
                     previous_record['bio'] = bio
+                    cumulative_line = ""
                     bio = ""
+
                     recto_page_state += 1
+                    cumulative_line = l.strip()
+                    continue
                 
+                ####################################################
+                if recto_page_state == 2: # Rite I Collect
+                    if l[0:2] == "II":
+                        cumulative_line = cumulative_line.lstrip('I').strip()
+                        previous_record['rite1_collect'] = cumulative_line
+                        cumulative_line = l.lstrip('II').strip()
+                        recto_page_state += 1
+                    else:
+                        cumulative_line += " " + l
+                        cumulative_line = cumulative_line.strip()
+                    continue
+
+                ####################################################
+                if recto_page_state == 3: # Rite II Collect
+                    if l[0:6] == "Lesson" or l[0:6] == "Decemb":
+                        cumulative_line = cumulative_line.lstrip('I').strip()
+                        previous_record['rite2_collect'] = cumulative_line
+                        cumulative_line = ""
+                        recto_page_state += 1
+                    else:
+                        cumulative_line += " " + l
+                        cumulative_line = cumulative_line.strip()
+                    continue
 
 
-            # TODO: Check that the dates & titles match data from the index. dates_with_problem_titles
-            # 2. Get rite1_collect
-            # 3. Get rite2_collect
-            # 4. Get first_lesson (note instructions after verse number)
+                ####################################################
+                if recto_page_state == 4: # Lessons
+                    # TODO Christmas has the extra pages
+                    # Note instructions after verse number
+                    continue
+
+
             # 5. Get psalm (assert)
             # 6. Get second_lesson or +1 to gospel
             # 7. Get gospel (assert)
@@ -175,8 +267,9 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
             
 
 
-print("{} pages processed".format(page))
-print(find_feast_by_date_and_title(feasts, "04", "03", ""))
+print(f"{page} pages processed")
+print(f"{mismatches} mismatches")
+#print(find_feast_by_date_and_title(feasts, "04", "03", ""))
 #print(find_feast_by_date_and_title(feasts, "04", "14"))
 #print(find_feast_by_date_and_title(feasts, "05", "17"))
 #print(find_feast_by_date_and_title(feasts, "05", "31"))
