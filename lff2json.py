@@ -22,13 +22,21 @@ months = []
 for m in month_name[1:]:
     months += [m.upper()]
 
+DEBUG = 1
+DEBUG_LEVELS = ("WARNING", "INFO", "DEBUG", "DEBUGDEBUG")
+def debug(message):
+    """Print debug statements depending on current debug level"""
+    message_level = message.split()[0].replace(":","")
+    level = DEBUG_LEVELS.index(message_level)
+    if level <= DEBUG:
+        print(message)
+
 
 def print_hex_chars(line_in):
     """Print hex characters so I can find & remove them."""
     for c in line_in:
         print(f"{c}: {ord(c):02x}")
 
-DEBUG_PAGE = 1000
 DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0909", "0927")
 def find_feast_by_date_and_title(feasts, mm, dd, title):
     for f in feasts:
@@ -37,12 +45,11 @@ def find_feast_by_date_and_title(feasts, mm, dd, title):
                 return f
             if mm + dd in DATES_WITH_PROBLEM_TITLES:
                 return f
-            if page >= DEBUG_PAGE:
-                print (f"DEBUG: find_feast_by_date_and_title p.{page} - {mm} {dd} {title[0:4].upper()}")
-                print (f"DEBUG: ----------------------------------------- {f['title'][0:4].upper()}")
+            debug (f"DEBUG: find_feast_by_date_and_title p.{page} - {mm} {dd} {title[0:4].upper()}")
+            debug (f"DEBUG: ----------------------------------------- {f['title'][0:4].upper()}")
             if title[0:4].upper() == f['title'][0:4].upper():
                 return f
-    print (f"WARNING: find_feast_by_date_and_title failed on {mm}/{dd}: {title}")
+    debug (f"WARNING: find_feast_by_date_and_title failed on {mm}/{dd}: {title}")
 
 
 feasts = []
@@ -57,19 +64,22 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
     for line in f:
         if "\f" in line:
             page += 1
+            debug (f"DEBUGDEBUG: Page #{page}")
         l = line.strip().replace("\x07", "")
 
         # skip to beginning of index
         if page < PP_INDEX[0]:
             continue
 
+        debug(f"DEBUGDEBUG: line = {l}")
+        
         # found index
         if PP_INDEX[0] <= page <= PP_INDEX[1]:
             if len(l) < 3:
                 continue
 
             if l.find(" or") > 0:
-                print (f"Found an 'or' in index {current_month}/{l}")
+                debug (f"INFO: Found an 'or' in index {current_month}/{l}")
                 # TODO make sure these five are all parsed out correctly
 
             # Check for new month name
@@ -131,6 +141,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
         if EXTRA_XMAS_PP[0] <= page <= EXTRA_XMAS_PP[1]:
             # TODO: how to include extra collects/lessons for Xmas?
+            # TODO Christmas has the extra pages
             continue
 
         if PP_ENTRIES[0] <= page <= PP_ENTRIES[1]:
@@ -144,6 +155,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 if len(l) > 2 and l[0] != '3' and l[0:4] != "July":
                     bio = (bio + " " + l).strip()
                 continue
+
+            
             
             if (page - PP_ENTRIES[0]) % 2 == 0: # verso page with bio
                 previous_record = {}
@@ -241,7 +254,10 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
                 ####################################################
                 if recto_page_state == 3: # Rite II Collect
-                    if l[0:6] == "Lesson" or l[0:6] == "Decemb":
+                    if "Amen" in l:
+                        if "Amen." not in l: # Missing in Charles Henry Brent Collect II
+                            l.replace("Amen", "Amen.")
+                        cumulative_line += l
                         cumulative_line = cumulative_line.lstrip('I').strip()
                         previous_record['rite2_collect'] = cumulative_line
                         cumulative_line = ""
@@ -253,12 +269,19 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
 
                 ####################################################
-                if recto_page_state == 4: # Lessons
-                    # TODO Christmas has the extra pages
-                    # Note instructions after verse number
+                GOSPELS = ("MATTHEW", "MARK", "LUKE", "JOHN")
+                if len(l) == 0:
+                    continue
+                if recto_page_state == 4: # Lessons and Psalm
+                    assert "Lessons and Psalm" in l, f"Unexpected line; expected 'Lessons and Psalm'; found {l} for {previous_record['title']} on {previous_record['mm']}/{previous_record['dd']}"
+                    recto_page_state += 1
                     continue
 
-
+                # Note instructions after verse number
+                if recto_page_state == 5: # first lesson
+                    previous_record['first_lesson'] = l
+                    recto_page_state += 1
+                    continue
             # 5. Get psalm (assert)
             # 6. Get second_lesson or +1 to gospel
             # 7. Get gospel (assert)
