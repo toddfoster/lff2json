@@ -1,17 +1,20 @@
 from calendar import month_name
 import re
 
-# TODO: Capture major feasts flag (all caps in index?)
+# TODO make sure the five "or's" are all parsed out correctly
+# TODO: Capture major feasts flag (all caps in index?
+# TODO Paragraph breaks are difficult: look for period finising line before column 75?
+# TODO: figure out spacing / line-breaks in the Sojourner bio
 
-
+DEBUG = 1
+DEBUG_LEVELS = ("WARNING", "INFO", "DEBUG", "DEBUGDEBUG")
 
 page = 0
 mismatches = 0
 PP_INDEX = (14, 25)
 PP_ENTRIES = (31, 578)
 SOJOURNER_BIO = (317, 319)
-EXTRA_XMAS_PP = (567, 568)
-
+XMAS_EXTRA = (567, 568)
 COLLECT_RE = re.compile('^I[^rng]')
 
 characters = 0
@@ -22,8 +25,6 @@ months = []
 for m in month_name[1:]:
     months += [m.upper()]
 
-DEBUG = 1
-DEBUG_LEVELS = ("WARNING", "INFO", "DEBUG", "DEBUGDEBUG")
 def debug(message):
     """Print debug statements depending on current debug level"""
     message_level = message.split()[0].replace(":","")
@@ -31,6 +32,9 @@ def debug(message):
     if level <= DEBUG:
         print(message)
 
+def check_for_instructions(reference, mmdd, title):
+    if reference[-1].isalpha() and reference[-1] not in ("a", "b", "c"):
+        debug(f"INFO: scripture with instructions for {mmdd} ({title}): {reference}")
 
 def print_hex_chars(line_in):
     """Print hex characters so I can find & remove them."""
@@ -38,18 +42,18 @@ def print_hex_chars(line_in):
         print(f"{c}: {ord(c):02x}")
 
 DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0909", "0927")
-def find_feast_by_date_and_title(feasts, mm, dd, title):
+def find_feast_by_date_and_title(feasts, mmdd, title):
     for f in feasts:
-        if f["mm"] == mm and f["dd"] == dd:
+        if f["mm"] == mmdd[0:2] and f["dd"] == mmdd[2:4]:
             if not title:
                 return f
-            if mm + dd in DATES_WITH_PROBLEM_TITLES:
+            if mmdd in DATES_WITH_PROBLEM_TITLES:
                 return f
-            debug (f"DEBUG: find_feast_by_date_and_title p.{page} - {mm} {dd} {title[0:4].upper()}")
+            debug (f"DEBUG: find_feast_by_date_and_title p.{page} - {mmdd} {title[0:4].upper()}")
             debug (f"DEBUG: ----------------------------------------- {f['title'][0:4].upper()}")
             if title[0:4].upper() == f['title'][0:4].upper():
                 return f
-    debug (f"WARNING: find_feast_by_date_and_title failed on {mm}/{dd}: {title}")
+            debug (f"WARNING: find_feast_by_date_and_title failed on {mmdd}: {title}")
 
 
 feasts = []
@@ -57,6 +61,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
     current_month = 0
     previous_record = {}
     mmdd_progress = 0
+    mmdd = ""
     bio = ""
     cumulative_line = ""
     recto_page_state = 0
@@ -64,7 +69,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
     for line in f:
         if "\f" in line:
             page += 1
-            debug (f"DEBUGDEBUG: Page #{page}")
+            debug (f"DEBUG: Page #{page}")
         l = line.strip().replace("\x07", "")
 
         # skip to beginning of index
@@ -80,7 +85,6 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
             if l.find(" or") > 0:
                 debug (f"INFO: Found an 'or' in index {current_month}/{l}")
-                # TODO make sure these five are all parsed out correctly
 
             # Check for new month name
             if l in months:
@@ -139,43 +143,42 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
         # Past index
         ############
 
-        if EXTRA_XMAS_PP[0] <= page <= EXTRA_XMAS_PP[1]:
-            # TODO: how to include extra collects/lessons for Xmas?
-            # TODO Christmas has the extra pages
-            continue
-
         if PP_ENTRIES[0] <= page <= PP_ENTRIES[1]:
             # verso pages have bio's; recto pages have title, collects, lessons, preface
             # easiest, though, to compare against beginning of this section;
             # so even pages (0, 2, etc.) will be verso and odd pages will be recto
         
             # Stanton, et al, bio runs three pages: handle specially
-            # TODO: figure out spacing / line-breaks in the Sojourner bio
             if SOJOURNER_BIO[0] <= page <= SOJOURNER_BIO[1]:
                 if len(l) > 2 and l[0] != '3' and l[0:4] != "July":
                     bio = (bio + " " + l).strip()
                 continue
 
-            
-            
-            if (page - PP_ENTRIES[0]) % 2 == 0: # verso page with bio
+            #######################################################
+            ## VERSO
+            #######################################################
+            if page not in XMAS_EXTRA and (page - PP_ENTRIES[0]) % 2 == 0: # verso page with bio
                 previous_record = {}
                 splits = l.split(" ")
                 month = splits[0].upper()
                 if len(splits) == 2 and month in months: # found date at bottom of page
+                    debug(f"DEBUGDEBUG: End of bio for {l}")
                     mm = months.index(month) + 1
                     dd = int (splits[1])
                     assert 0 < dd < 32, f"Bad day value {dd}: {l}"
-                    mmdd = mm * 100 + dd
-                    assert mmdd >= mmdd_progress, f"Source dates out of order: {l}"
-                    mmdd_progress = mmdd
+                    mmdd = f"{mm:02}{dd:02}"
+                    assert int(mmdd) >= mmdd_progress, f"Source dates out of order: {l}"
+                    mmdd_progress = int(mmdd)
                     recto_page_state = 0
-                elif len(l) > 3:
+                elif len(l) > 0:
                     bio = (bio + " " + l).strip()
-            # TODO Paragraph breaks are difficult: look for period finising line before column 75?
+
+            #######################################################
+            ## RECTO
+            #######################################################
             else: #recto page with title, other data
-                mmdd = mm * 100 + dd
-                KEEP_LOOKING_LIST=(315, 416, 1016)
+                KEEP_LOOKING_LIST=("0315", "0416", "1016")
+
                 ####################################################
                 if recto_page_state == 0: # Looking for title
                     NO_COMMA_AFTER = (" and", " of", " Lord",
@@ -185,8 +188,10 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                         cumulative_line += ", " + l
                         continue
                     else:
+                        debug (f"DEBUGDEBUG: Found title {cumulative_line}")
                         recto_page_state += 1
                         assert len(cumulative_line) > 5, f"No title found on recto page {page}: {l}"
+
                 ####################################################
                 if recto_page_state == 1: # Check Titles
                     # Clean up the assembled title
@@ -206,13 +211,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     cumulative_line = cumulative_line.replace(
                         'Cope] Monastic', 'Cope], Monastic')
 
-                    previous_record = find_feast_by_date_and_title(
-                        feasts,
-                        f"{mm:02}",
-                        f"{dd:02}",
-                        cumulative_line
-                        )
-                    assert previous_record, f"Couldn't locate record for {mm}/{dd} {cumulative_line}"
+                    previous_record = find_feast_by_date_and_title(feasts, mmdd, cumulative_line)
+                    assert previous_record, f"Couldn't locate record for {mmdd} (p. {page}): {cumulative_line}"
                     
                     # Check title consistency; choose on mismatch
                     def normalize(s):
@@ -220,16 +220,18 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                         s = s.replace(']', '')
                         s = s.replace('[', '')
                         return s
-                    TITLE_MISMATCHES_TO_IGNORE = (114, 126, 210, 219, 415, 416, 421, 1109)
-                    PREFER_INDEX_TITLE = (201, 205, 214, 315, 628, 728, 909, 1014)
+                    TITLE_MISMATCHES_TO_IGNORE = ("0114", "0126", "0210", "0219",
+                                                  "0415", "0416", "0421", "1109")
+                    PREFER_INDEX_TITLE = ("0201", "0205", "0214", "0315",
+                                          "0628", "0728", "0909", "1014")
                     if mmdd not in TITLE_MISMATCHES_TO_IGNORE and mmdd not in PREFER_INDEX_TITLE:
                         index_title = normalize(previous_record['title'])
                         mainp_title = normalize(cumulative_line)
                         if index_title != mainp_title:
                             mismatches += 1
-                            print (f"*** Mismatched name on {mm}/{dd}:")
-                            print (f"*** == index -> {index_title}")
-                            print (f"*** == mainp -> {mainp_title}")
+                            debug (f"INFO *** Mismatched name on {mmdd}:")
+                            print (f"INFO *** == index -> {index_title}")
+                            print (f"INFO *** == mainp -> {mainp_title}")
                     if mmdd not in PREFER_INDEX_TITLE:
                         previous_record['title'] = cumulative_line
                     previous_record['bio'] = bio
@@ -238,60 +240,125 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
                     recto_page_state += 1
                     cumulative_line = l.strip()
+                    debug (f"DEBUG found title: {previous_record['title']}")
                     continue
                 
                 ####################################################
                 if recto_page_state == 2: # Rite I Collect
-                    if l[0:2] == "II":
-                        cumulative_line = cumulative_line.lstrip('I').strip()
+                    if "Amen" in l:
+                        assert "Amen." in l, "Found Rite I collect without full stop after Amen"
+                        cumulative_line += " " + l.strip()
+                        cumulative_line = cumulative_line.strip().lstrip('I').strip()
                         previous_record['rite1_collect'] = cumulative_line
-                        cumulative_line = l.lstrip('II').strip()
+                        debug (f"DEBUG Found Collect I: {cumulative_line}")
+                        cumulative_line = ""
                         recto_page_state += 1
                     else:
-                        cumulative_line += " " + l
-                        cumulative_line = cumulative_line.strip()
+                        cumulative_line += " " + l.strip()
                     continue
 
                 ####################################################
                 if recto_page_state == 3: # Rite II Collect
+                    if page == 200 and "for ever and ever." in l:
+                        l += " Amen." # TYPO Missing from Collect II for Juana Inés de la Cruz
+                    if page in (162, 196):
+                        l += "." # TYPO Missing full stop after Amen for C. H. Brent, P. W. Cassey
                     if "Amen" in l:
-                        if "Amen." not in l: # Missing in Charles Henry Brent Collect II
-                            l.replace("Amen", "Amen.")
-                        cumulative_line += l
-                        cumulative_line = cumulative_line.lstrip('I').strip()
+                        assert "Amen." in l, f"Found Rite I collect without full stop after Amen (p. {page}: {previous_record['title']})"
+                        cumulative_line += " " + l.strip()
+                        cumulative_line = cumulative_line.strip().lstrip('I').strip()
                         previous_record['rite2_collect'] = cumulative_line
+                        debug (f"DEBUG Found Collect II: {cumulative_line}")
                         cumulative_line = ""
                         recto_page_state += 1
                     else:
-                        cumulative_line += " " + l
-                        cumulative_line = cumulative_line.strip()
+                        cumulative_line += " " + l.strip()
                     continue
 
+                ###################################################
+                # Special handling for Christmas Day pages
+                if mmdd == "1225":
+                    debug (f"INFO: Xmas page {page}: {l}")
+                    if page == 566:
+                        recto_page_state = 14 #special state to catch lessons for Christmas"
+                        continue
+                    elif page == 567:
+                        if len(l) <= 3 or "December" in l:
+                            continue
+                        if 'notes' not in previous_record:
+                            previous_record['notes'] = l.strip()
+                        else:
+                            previous_record['notes'] += "\n" + l.strip()
+                    elif page == 568 and recto_page_state == 14:
+                        if "Lessons and Psalm" in l:
+                            recto_page_state = 4
+                            # don't continue: fall down into that handler!
+                        else:
+                            previous_record['notes'] += "\n" + l.strip()
+                            continue
+                    elif page == 568 and recto_page_state == 9 and "Preface" not in l:
+                        if len(l) <= 3 or "December" in l:
+                            continue
+                        if "Isaiah" in l:
+                            l = "or\n" + l
+                        previous_record['notes'] += "\n" + l.strip()
+                        continue    
 
                 ####################################################
-                GOSPELS = ("MATTHEW", "MARK", "LUKE", "JOHN")
                 if len(l) == 0:
                     continue
                 if recto_page_state == 4: # Lessons and Psalm
-                    assert "Lessons and Psalm" in l, f"Unexpected line; expected 'Lessons and Psalm'; found {l} for {previous_record['title']} on {previous_record['mm']}/{previous_record['dd']}"
+                    assert "Lesson" in l and "Psalm" in l, f"Unexpected line; expected 'Lessons and Psalm'; found {l} for {previous_record['title']} on {mmdd}"
                     recto_page_state += 1
                     continue
 
-                # Note instructions after verse number
                 if recto_page_state == 5: # first lesson
+                    check_for_instructions(l, mmdd, previous_record['title'])
                     previous_record['first_lesson'] = l
                     recto_page_state += 1
                     continue
-            # 5. Get psalm (assert)
-            # 6. Get second_lesson or +1 to gospel
-            # 7. Get gospel (assert)
-            # 8. Get preface, drop record, state to 1
 
-            
+                if recto_page_state == 6: # Psalm
+                    assert "Psalm" in l, f"Unexpected line; expected Psalm, found {l}"
+                    check_for_instructions(l, mmdd, previous_record['title'])
+                    previous_record['psalm'] = l
+                    recto_page_state += 1
+                    continue
+
+                GOSPELS = ("MATTHEW", "MARK", "LUKE", "JOHN")
+                if recto_page_state == 7: # Second / Gospel
+                    check_for_instructions(l, mmdd, previous_record['title'])
+                    if l.split()[0].upper() in GOSPELS:
+                        previous_record['gospel'] = l
+                        recto_page_state += 2
+                        continue
+                    else:
+                        previous_record['second_lesson'] = l
+                        recto_page_state += 1
+                    continue
+
+                if recto_page_state == 8: # Gospel
+                    check_for_instructions(l, mmdd, previous_record['title'])
+                    assert l.split()[0].upper() in GOSPELS, f"Expected Gospel, found {l}"
+                    previous_record['gospel'] = l
+                    recto_page_state += 1
+                    continue
+
+                if recto_page_state == 9: # Preface
+                    if len(l.strip()) == 0:
+                        continue
+                    if "Preface" in l or "Common" in l:
+                        previous_record['preface'] = l
+                        recto_page_state += 1
+                        continue
+                    if 'notes' not in previous_record:
+                        previous_record['notes'] = ""
+                    previous_record['notes'] = previous_record['notes'] + "\n" + l.strip()
+                    continue
 
 
-print(f"{page} pages processed")
-print(f"{mismatches} mismatches")
+debug(f"INFO {page} pages processed")
+debug(f"INFO {mismatches} mismatches")
 #print(find_feast_by_date_and_title(feasts, "04", "03", ""))
 #print(find_feast_by_date_and_title(feasts, "04", "14"))
 #print(find_feast_by_date_and_title(feasts, "05", "17"))
@@ -299,7 +366,8 @@ print(f"{mismatches} mismatches")
 #print(find_feast_by_date_and_title(feasts, "06", "15"))
 #print(find_feast_by_date_and_title(feasts, "06", "29"))
 #print(find_feast_by_date_and_title(feasts, "12", "17"))
-print(find_feast_by_date_and_title(feasts, "12", "31", ""))
-print("------------")
+print(find_feast_by_date_and_title(feasts, "1231", ""))
+print(find_feast_by_date_and_title(feasts, "1101", ""))
+print(find_feast_by_date_and_title(feasts, "1225", ""))
 #for f in feasts:
 #    print(f"{f['mm']}/{f['dd']}: {f['title']}")
