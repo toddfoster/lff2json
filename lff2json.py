@@ -1,10 +1,9 @@
 from calendar import month_name
 import re
 
-# TODO make sure the five "or's" are all parsed out correctly
+# TODO: add extra spacing to stanton, et al bio (coded but not working?)
 # TODO: Capture major feasts flag (all caps in index?
-# TODO Paragraph breaks are difficult: look for period finising line before column 75?
-# TODO: figure out spacing / line-breaks in the Sojourner bio
+# TODO: Check by hand for long lines that need manual line breaks???
 
 DEBUG = 1
 DEBUG_LEVELS = ("WARNING", "INFO", "DEBUG", "DEBUGDEBUG")
@@ -16,6 +15,10 @@ PP_ENTRIES = (31, 578)
 SOJOURNER_BIO = (317, 319)
 XMAS_EXTRA = (567, 568)
 COLLECT_RE = re.compile('^I[^rng]')
+LONG_LINES = ("about fifteen years old.", "Master be like?", "Moses of their own.",
+              "on November 26, 1883.", "women’s rights speakers’ network")
+EXTRA_LINE_BREAK = ("Amelia Jenks Bloomer 1818-1894", "Sojourner Truth, \"Miriam of the Later",
+                    "Harriet Ross Tubman, \"Moses of Her")
 
 characters = 0
 mayjune_day = 0
@@ -41,8 +44,8 @@ def print_hex_chars(line_in):
     for c in line_in:
         print(f"{c}: {ord(c):02x}")
 
-DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0909", "0927")
 def find_feast_by_date_and_title(feasts, mmdd, title):
+    DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0720", "0909", "0927")
     for f in feasts:
         if f["mm"] == mmdd[0:2] and f["dd"] == mmdd[2:4]:
             if not title:
@@ -53,7 +56,7 @@ def find_feast_by_date_and_title(feasts, mmdd, title):
             debug (f"DEBUG: ----------------------------------------- {f['title'][0:4].upper()}")
             if title[0:4].upper() == f['title'][0:4].upper():
                 return f
-            debug (f"WARNING: find_feast_by_date_and_title failed on {mmdd}: {title}")
+    debug (f"WARNING: find_feast_by_date_and_title failed on {mmdd}: {title}")
 
 
 feasts = []
@@ -143,6 +146,22 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
         # Past index
         ############
 
+        def add_to_bio(existing_bio, addition):
+            result = existing_bio
+            if len(addition) > 3:
+                if len(result) > 0 and result[-1] != "\n":
+                    result += " "
+                for p in EXTRA_LINE_BREAK:
+                    if p in addition:
+                        result += "\n"
+                result += addition.strip()
+                if len(addition) < 70:
+                    result += "\n"
+                for p in LONG_LINES:
+                    if p in addition:
+                        result += "\n"
+            return result
+
         if PP_ENTRIES[0] <= page <= PP_ENTRIES[1]:
             # verso pages have bio's; recto pages have title, collects, lessons, preface
             # easiest, though, to compare against beginning of this section;
@@ -150,28 +169,34 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
         
             # Stanton, et al, bio runs three pages: handle specially
             if SOJOURNER_BIO[0] <= page <= SOJOURNER_BIO[1]:
-                if len(l) > 2 and l[0] != '3' and l[0:4] != "July":
-                    bio = (bio + " " + l).strip()
+                if len(l) != 0 and l[0] != '3' and l[0:4] != "July":
+                    debug(f"DEBUG: adding line: {l}")
+                    bio = add_to_bio(bio, l)
+                recto_page_state = 0
+                mm = 7
+                dd = 20
+                mmdd = "0720"
                 continue
 
             #######################################################
-            ## VERSO
+            ## VERSO page with bio
             #######################################################
-            if page not in XMAS_EXTRA and (page - PP_ENTRIES[0]) % 2 == 0: # verso page with bio
+            if page not in XMAS_EXTRA and (page - PP_ENTRIES[0]) % 2 == 0:
                 previous_record = {}
-                splits = l.split(" ")
-                month = splits[0].upper()
-                if len(splits) == 2 and month in months: # found date at bottom of page
-                    debug(f"DEBUGDEBUG: End of bio for {l}")
-                    mm = months.index(month) + 1
-                    dd = int (splits[1])
-                    assert 0 < dd < 32, f"Bad day value {dd}: {l}"
-                    mmdd = f"{mm:02}{dd:02}"
-                    assert int(mmdd) >= mmdd_progress, f"Source dates out of order: {l}"
-                    mmdd_progress = int(mmdd)
-                    recto_page_state = 0
-                elif len(l) > 0:
-                    bio = (bio + " " + l).strip()
+                splits = l.split()
+                if len(splits) == 2:
+                    month = splits[0].upper()
+                    if month in months: # found date at bottom of page
+                        debug(f"DEBUGDEBUG: End of bio for {l}")
+                        mm = months.index(month) + 1
+                        dd = int (splits[1])
+                        assert 0 < dd < 32, f"Bad day value {dd}: {l}"
+                        mmdd = f"{mm:02}{dd:02}"
+                        assert int(mmdd) >= mmdd_progress, f"Source dates out of order: {l}"
+                        mmdd_progress = int(mmdd)
+                        recto_page_state = 0
+                    elif len(l) > 3:
+                        bio = add_to_bio(bio, l)
 
             #######################################################
             ## RECTO
@@ -234,7 +259,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                             print (f"INFO *** == mainp -> {mainp_title}")
                     if mmdd not in PREFER_INDEX_TITLE:
                         previous_record['title'] = cumulative_line
-                    previous_record['bio'] = bio
+                    previous_record['bio'] = bio.strip()
                     cumulative_line = ""
                     bio = ""
 
@@ -278,7 +303,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 ###################################################
                 # Special handling for Christmas Day pages
                 if mmdd == "1225":
-                    debug (f"INFO: Xmas page {page}: {l}")
+                    debug (f"DEBUG: Xmas page {page}: {l}")
                     if page == 566:
                         recto_page_state = 14 #special state to catch lessons for Christmas"
                         continue
@@ -359,15 +384,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
 debug(f"INFO {page} pages processed")
 debug(f"INFO {mismatches} mismatches")
-#print(find_feast_by_date_and_title(feasts, "04", "03", ""))
-#print(find_feast_by_date_and_title(feasts, "04", "14"))
-#print(find_feast_by_date_and_title(feasts, "05", "17"))
-#print(find_feast_by_date_and_title(feasts, "05", "31"))
-#print(find_feast_by_date_and_title(feasts, "06", "15"))
-#print(find_feast_by_date_and_title(feasts, "06", "29"))
-#print(find_feast_by_date_and_title(feasts, "12", "17"))
-print(find_feast_by_date_and_title(feasts, "1231", ""))
-print(find_feast_by_date_and_title(feasts, "1101", ""))
-print(find_feast_by_date_and_title(feasts, "1225", ""))
+# print(find_feast_by_date_and_title(feasts, "1231", ""))
+print(find_feast_by_date_and_title(feasts, "0720", ""))
+#print(find_feast_by_date_and_title(feasts, "1201", "[Charles"))
 #for f in feasts:
 #    print(f"{f['mm']}/{f['dd']}: {f['title']}")
