@@ -47,6 +47,28 @@ def scripture_has_instructions(reference, mmdd, title):
             return True
     return False
 
+slugs = []
+def make_slug(title):
+    slug = title
+    for c in ("PRESENTATION", "EPIPHANY", "ANNUNCIATION", "VISITATION", "TRANSFIGURATION"):
+        if c in slug:
+            slug = c
+    for c in (",", "/", "(", " and"):
+        if c in slug:
+            slug = slug.split(c)[0]
+    for c in ("[", "]"):
+        slug = slug.replace(c, "")
+    slug = slug.upper()
+    if slug[0:4] == "THE ":
+        slug = slug[4:]
+    slug = slug.strip().replace(" ", "-")
+    slug = "LFF2018-" + slug
+    debug(f"INFO slug = {slug}")
+    assert slug not in slugs, f"ERROR made duplicate slug {slug} for {title}"
+    slugs.append(slug)
+    return slug
+
+
 def print_hex_chars(line_in):
     """Print hex characters so I can find & remove them."""
     for c in line_in:
@@ -261,7 +283,10 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
                     previous_record = find_feast_by_date_and_title(feasts, mmdd, cumulative_line)
                     assert previous_record, f"Couldn't locate record for {mmdd} (p. {page}): {cumulative_line}"
-                    
+
+                    # Add slug
+                    previous_record["slug"] = make_slug(previous_record["title"]),
+
                     # Check title consistency; choose on mismatch
                     def normalize(s):
                         s =  s.upper()
