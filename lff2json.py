@@ -1,7 +1,6 @@
 from calendar import month_name
 import re
 
-# TODO: Capture major feasts flag (all caps in index?
 # TODO: Check by hand for long lines that need manual line breaks???
 
 DEBUG = 1
@@ -79,8 +78,10 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
             continue
 
         debug(f"DEBUGDEBUG: line = {l}")
-        
-        # found index
+
+        ###############
+        # Parse index
+        ###############
         if PP_INDEX[0] <= page <= PP_INDEX[1]:
             if len(l) < 3:
                 continue
@@ -93,7 +94,18 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 current_month = f"{months.index(l)+1:02}"
                 # print(f"current_month={current_month}")
                 mayjune_day = 0
-                continue
+                continue  
+
+            # Check for major feast (all-caps in title)
+            count_caps = 0
+            for c in l:
+                if c.isalpha() and c.isupper():
+                    count_caps += 1
+                    if count_caps > 2:
+                        break
+                else:
+                    count_caps = 0
+            major_feast = count_caps > 2
 
             # May and June are messed up & need special treatment
             if current_month in ('05', '06'):
@@ -108,6 +120,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     "mm": current_month,
                     "dd": f"{mayjune_day:02}",
                     "title": l,
+                    "major_feast": major_feast
                 })
                 continue
 
@@ -122,7 +135,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 previous_record = {
                     "mm": current_month,
                     "dd": current_day,
-                    "title": feast
+                    "title": feast,
+                    "major_feast": major_feast
                     }
                 feasts.append(previous_record)
                 # There are five dates with two options for the feast;
@@ -380,11 +394,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     previous_record['notes'] = previous_record['notes'] + "\n" + l.strip()
                     continue
 
-
 debug(f"INFO {page} pages processed")
 debug(f"INFO {mismatches} mismatches")
-# print(find_feast_by_date_and_title(feasts, "1231", ""))
-print(find_feast_by_date_and_title(feasts, "0720", ""))
-#print(find_feast_by_date_and_title(feasts, "1201", "[Charles"))
+print(find_feast_by_date_and_title(feasts, "0325", ""))
 #for f in feasts:
 #    print(f"{f['mm']}/{f['dd']}: {f['title']}")
