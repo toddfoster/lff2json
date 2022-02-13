@@ -16,9 +16,20 @@ PP_ENTRIES = (31, 578)
 SOJOURNER_BIO = (317, 319)
 XMAS_EXTRA = (567, 568)
 COLLECT_RE = re.compile('^I[^rng]')
-LONG_LINES = ("about fifteen years old.", "Master be like?", "Moses of their own.",
-              "on November 26, 1883.", "women’s rights speakers’ network")
-EXTRA_LINE_BREAK = ("Amelia Jenks Bloomer 1818", "Miriam of the Later Exodus",
+LONG_LINES = ("in Hebrew.",
+              "Epiphany in Year C.",
+              "blessing of chalk:",
+              "valued by the whole church.",
+              "Aelred wrote his best known work",
+              "love and peace with one another",
+              "about fifteen years old.",
+              "Master be like?",
+              "Moses of their own.",
+              "on November 26, 1883.",
+              "women’s rights speakers’ network")
+
+EXTRA_LINE_BREAK = ("Amelia Jenks Bloomer 1818",
+                    "Miriam of the Later Exodus",
                     "Moses of Her People")
 
 characters = 0
@@ -50,20 +61,20 @@ def scripture_has_instructions(reference, mmdd, title):
 slugs = []
 def make_slug(title):
     slug = title
-    for c in ("PRESENTATION", "EPIPHANY", "ANNUNCIATION", "VISITATION", "TRANSFIGURATION"):
-        if c in slug:
-            slug = c
-    for c in (",", "/", "(", " and"):
-        if c in slug:
-            slug = slug.split(c)[0]
-    for c in ("[", "]"):
-        slug = slug.replace(c, "")
+    for i in ("PRESENTATION", "EPIPHANY", "ANNUNCIATION", "VISITATION", "TRANSFIGURATION"):
+        if i in slug:
+            slug = i
+    for i in (",", "/", "(", " and"):
+        if i in slug:
+            slug = slug.split(i)[0]
+    for i in ("[", "]"):
+        slug = slug.replace(i, "")
     slug = slug.upper()
     if slug[0:4] == "THE ":
         slug = slug[4:]
     slug = slug.strip().replace(" ", "-")
     slug = "LFF2018-" + slug
-    debug(f"INFO slug = {slug}")
+    debug(f"DEBUG slug = {slug}")
     assert slug not in slugs, f"ERROR made duplicate slug {slug} for {title}"
     slugs.append(slug)
     return slug
@@ -73,6 +84,7 @@ def print_hex_chars(line_in):
     """Print hex characters so I can find & remove them."""
     for c in line_in:
         print(f"{c}: {ord(c):02x}")
+
 
 def find_feast_by_date_and_title(feasts, mmdd, title):
     DATES_WITH_PROBLEM_TITLES=("0126", "0525", "0720", "0909", "0927")
@@ -103,8 +115,9 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
         if "\f" in line:
             page += 1
             debug (f"DEBUG: Page #{page}")
-        l = line.strip().replace("\x07", "").replace("\u2013", '-')
-
+        l = line.replace("\x07", "")
+        l = l.replace("\u2013", '-').replace("\2019", "'").replace("\u201c", '"').replace("\u201d", '"')
+        l = l.strip()
         # skip to beginning of index
         if page < PP_INDEX[0]:
             continue
@@ -234,14 +247,14 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     if month in months: # found date at bottom of page
                         debug(f"DEBUGDEBUG: End of bio for {l}")
                         mm = months.index(month) + 1
-                        dd = int (splits[1])
+                        dd = int(splits[1])
                         assert 0 < dd < 32, f"Bad day value {dd}: {l}"
                         mmdd = f"{mm:02}{dd:02}"
                         assert int(mmdd) >= mmdd_progress, f"Source dates out of order: {l}"
                         mmdd_progress = int(mmdd)
                         recto_page_state = 0
-                    elif len(l) > 3:
-                        bio = add_to_bio(bio, l)
+                elif len(l) > 3:
+                    bio = add_to_bio(bio, l)
 
             #######################################################
             ## RECTO
@@ -307,9 +320,11 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                             print (f"INFO *** == mainp -> {mainp_title}")
                     if mmdd not in PREFER_INDEX_TITLE:
                         previous_record['title'] = cumulative_line
+
                     previous_record['bio'] = bio.strip()
-                    cumulative_line = ""
+
                     bio = ""
+                    cumulative_line = ""
 
                     recto_page_state += 1
                     cumulative_line = l.strip()
@@ -437,7 +452,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
 debug(f"INFO {page} pages processed")
 debug(f"INFO {mismatches} mismatches")
-# print(find_feast_by_date_and_title(feasts, "1225", ""))
+print(find_feast_by_date_and_title(feasts, "0101", ""))
 
 with open ("lff2018.json", "w") as t:
     t.write(json.dumps(feasts, indent=4))
