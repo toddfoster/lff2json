@@ -258,11 +258,11 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                         s = s.replace(']', '')
                         s = s.replace('[', '')
                         return s
-                    TITLE_MISMATCHES_TO_IGNORE = ("0114", "0126", "0210", "0219",
-                                                  "0415", "0416", "0421", "1109")
+                    ACKNOWLEDGED_TITLE_MISMATCHES = ("0114", "0126", "0210", "0219",
+                                                  "0415", "0416", "0421", "0720", "1109")
                     PREFER_INDEX_TITLE = ("0201", "0205", "0214", "0315",
                                           "0628", "0728", "0909", "1014")
-                    if mmdd not in TITLE_MISMATCHES_TO_IGNORE and mmdd not in PREFER_INDEX_TITLE:
+                    if mmdd not in ACKNOWLEDGED_TITLE_MISMATCHES and mmdd not in PREFER_INDEX_TITLE:
                         index_title = normalize(previous_record['title'])
                         mainp_title = normalize(cumulative_line)
                         if index_title != mainp_title:
