@@ -13,6 +13,7 @@ Parse Lesser Feasts and Fasts 2018 into json
 - x Find main page for each feast
 - x preceding page is bio
 - x page with name at top has two collects, scriptures, preface
+- x place extra information (alt. scriptures, collects, etc.) in a "notes" field
 - x ad hoc cope with inconsistencies in text
 - x Provide slugs for easy reference?
-- Proofread, especially looking for long lines that end paragraphs
+- x Proofread, especially looking for long lines that end paragraphs
