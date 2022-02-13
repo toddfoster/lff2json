@@ -544,6 +544,12 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     cumulative_line = l.strip()
                     debug (f"DEBUG found title: {previous_record['title']}")
                     continue
+
+                ####################################################
+                # Typo: Collects for Willibrord name Boniface instead!
+                if 2 <= recto_page_state <= 3 and "Willibrord" in previous_record['title']:
+                    if "servant Boniface we might" in l:
+                        l = l.replace("Boniface", "Willibrord")
                 
                 ####################################################
                 if recto_page_state == 2: # Rite I Collect
@@ -561,10 +567,11 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
                 ####################################################
                 if recto_page_state == 3: # Rite II Collect
-                    if page == 200 and "for ever and ever." in l:
+                    if "Juana" in previous_record['title'] and "for ever and ever." in l:
                         l += " Amen." # TYPO Missing from Collect II for Juana Inés de la Cruz
-                    if page in (162, 196):
-                        l += "." # TYPO Missing full stop after Amen for C. H. Brent, P. W. Cassey
+                    if "Amen" in l:
+                        if "Brent" in previous_record['title'] or "Cassey" in previous_record['title']:
+                            l += "." # TYPO Missing full stop after Amen for C. H. Brent, P. W. Cassey
                     if "Amen" in l:
                         assert "Amen." in l, f"Found Rite I collect without full stop after Amen (p. {page}: {previous_record['title']})"
                         cumulative_line += " " + l.strip()
