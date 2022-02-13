@@ -14,5 +14,5 @@ Parse Lesser Feasts and Fasts 2018 into json
 - x preceding page is bio
 - x page with name at top has two collects, scriptures, preface
 - x ad hoc cope with inconsistencies in text
-- Provide slugs for easy reference?
+- x Provide slugs for easy reference?
 - Proofread, especially looking for long lines that end paragraphs
