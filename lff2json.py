@@ -4,7 +4,6 @@ import json
 
 # TEF, February 2022
 
-# TODO Feast of Holy name has instructions in lessons: find all & decide how to deal with them
 # TODO: Check by hand for long lines that need manual line breaks???
 
 DEBUG = 1
@@ -37,9 +36,16 @@ def debug(message):
     if level <= DEBUG:
         print(message)
 
-def check_for_instructions(reference, mmdd, title):
-    if reference[-1].isalpha() and reference[-1] not in ("a", "b", "c"):
-        debug(f"INFO: scripture with instructions for {mmdd} ({title}): {reference}")
+def scripture_has_instructions(reference, mmdd, title):
+    found_numerals = False
+    # Skip first character in case it is a numeral (e.g., 1 Corinthians)
+    for c in reference[1:]:
+        found_numerals = found_numerals or c.isdigit()
+        if found_numerals and c.isalpha() and c not in  ("a", "b", "c"):
+            debug(f"INFO: scripture with instructions for {mmdd} ({title}): {reference}")
+            assert "or" in reference, f"WARNING: 'or' not in reference {reference}"
+            return True
+    return False
 
 def print_hex_chars(line_in):
     """Print hex characters so I can find & remove them."""
@@ -355,21 +361,25 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     continue
 
                 if recto_page_state == 5: # first lesson
-                    check_for_instructions(l, mmdd, previous_record['title'])
+                    if scripture_has_instructions(l, mmdd, previous_record['title']):
+                        previous_record['notes'] = "or" + l.split("or")[1]
+                        l = l.split("or")[0].strip()
                     previous_record['first_lesson'] = l
                     recto_page_state += 1
                     continue
 
                 if recto_page_state == 6: # Psalm
                     assert "Psalm" in l, f"Unexpected line; expected Psalm, found {l}"
-                    check_for_instructions(l, mmdd, previous_record['title'])
+                    scripture_has_instructions(l, mmdd, previous_record['title'])
                     previous_record['psalm'] = l
                     recto_page_state += 1
                     continue
 
                 GOSPELS = ("MATTHEW", "MARK", "LUKE", "JOHN")
                 if recto_page_state == 7: # Second / Gospel
-                    check_for_instructions(l, mmdd, previous_record['title'])
+                    if scripture_has_instructions(l, mmdd, previous_record['title']):
+                        previous_record['notes'] = "or" + l.split("or")[1]
+                        l = l.split("or")[0].strip()
                     if l.split()[0].upper() in GOSPELS:
                         previous_record['gospel'] = l
                         recto_page_state += 2
@@ -380,7 +390,9 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     continue
 
                 if recto_page_state == 8: # Gospel
-                    check_for_instructions(l, mmdd, previous_record['title'])
+                    if scripture_has_instructions(l, mmdd, previous_record['title']):
+                        previous_record['notes'] = "or" + l.split("or")[1]
+                        l = l.split("or")[0].strip()
                     assert l.split()[0].upper() in GOSPELS, f"Expected Gospel, found {l}"
                     previous_record['gospel'] = l
                     recto_page_state += 1
@@ -400,8 +412,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
 debug(f"INFO {page} pages processed")
 debug(f"INFO {mismatches} mismatches")
-# print(find_feast_by_date_and_title(feasts, "0325", ""))
+# print(find_feast_by_date_and_title(feasts, "1225", ""))
 
 with open ("lff2018.json", "w") as t:
     t.write(json.dumps(feasts, indent=4))
-
