@@ -1,7 +1,6 @@
 from calendar import month_name
 import re
 
-# TODO: add extra spacing to stanton, et al bio (coded but not working?)
 # TODO: Capture major feasts flag (all caps in index?
 # TODO: Check by hand for long lines that need manual line breaks???
 
@@ -17,8 +16,8 @@ XMAS_EXTRA = (567, 568)
 COLLECT_RE = re.compile('^I[^rng]')
 LONG_LINES = ("about fifteen years old.", "Master be like?", "Moses of their own.",
               "on November 26, 1883.", "women’s rights speakers’ network")
-EXTRA_LINE_BREAK = ("Amelia Jenks Bloomer 1818-1894", "Sojourner Truth, \"Miriam of the Later",
-                    "Harriet Ross Tubman, \"Moses of Her")
+EXTRA_LINE_BREAK = ("Amelia Jenks Bloomer 1818", "Miriam of the Later Exodus",
+                    "Moses of Her People")
 
 characters = 0
 mayjune_day = 0
