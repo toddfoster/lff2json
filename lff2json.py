@@ -1,6 +1,10 @@
 from calendar import month_name
 import re
+import json
 
+# TEF, February 2022
+
+# TODO Feast of Holy name has instructions in lessons: find all & decide how to deal with them
 # TODO: Check by hand for long lines that need manual line breaks???
 
 DEBUG = 1
@@ -71,7 +75,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
         if "\f" in line:
             page += 1
             debug (f"DEBUG: Page #{page}")
-        l = line.strip().replace("\x07", "")
+        l = line.strip().replace("\x07", "").replace("\u2013", '-')
 
         # skip to beginning of index
         if page < PP_INDEX[0]:
@@ -396,6 +400,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
 
 debug(f"INFO {page} pages processed")
 debug(f"INFO {mismatches} mismatches")
-print(find_feast_by_date_and_title(feasts, "0325", ""))
-#for f in feasts:
-#    print(f"{f['mm']}/{f['dd']}: {f['title']}")
+# print(find_feast_by_date_and_title(feasts, "0325", ""))
+
+with open ("lff2018.json", "w") as t:
+    t.write(json.dumps(feasts, indent=4))
+
