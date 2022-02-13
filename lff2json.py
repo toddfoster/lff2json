@@ -288,8 +288,8 @@ def make_slug(title):
         slug = slug[4:]
     slug = slug.strip().replace(" ", "-")
     slug = "LFF2018-" + slug
-    debug(f"DEBUG slug = {slug}")
-    assert slug not in slugs, f"ERROR made duplicate slug {slug} for {title}"
+    debug(f"DEBUG: slug = {slug}")
+    assert slug not in slugs, f"ERROR: made duplicate slug {slug} for {title}"
     slugs.append(slug)
     return slug
 
@@ -512,7 +512,7 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     assert previous_record, f"Couldn't locate record for {mmdd} (p. {page}): {cumulative_line}"
 
                     # Add slug
-                    previous_record["slug"] = make_slug(previous_record["title"]),
+                    previous_record["slug"] = make_slug(previous_record["title"])
 
                     # Check title consistency; choose on mismatch
                     def normalize(s):
