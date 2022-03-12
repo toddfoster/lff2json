@@ -1,6 +1,7 @@
 from calendar import month_name
 import re
 import json
+import unicodedata
 
 # TEF, February 2022
 
@@ -272,9 +273,22 @@ def scripture_has_instructions(reference, mmdd, title):
             return True
     return False
 
+def strip_accents(text):
+    # src: https://stackoverflow.com/questions/44431730/how-to-replace-accented-characters
+    try:
+        text = unicode(text, 'utf-8')
+    except NameError:
+        pass
+    text = unicodedata.normalize('NFD', text)\
+      .encode('ascii', 'ignore')\
+      .decode('utf-8')
+    return str(text)
+
+
+
 slugs = []
 def make_slug(title):
-    slug = title
+    slug = strip_accents(title)
     for i in ("PRESENTATION", "EPIPHANY", "ANNUNCIATION", "VISITATION", "TRANSFIGURATION"):
         if i in slug:
             slug = i
@@ -288,6 +302,7 @@ def make_slug(title):
         slug = slug[4:]
     slug = slug.strip().replace(" ", "-")
     slug = "LFF2018-" + slug
+    slug = slug.lower()
     debug(f"DEBUG: slug = {slug}")
     assert slug not in slugs, f"ERROR: made duplicate slug {slug} for {title}"
     slugs.append(slug)
@@ -373,6 +388,8 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                     mayjune_day += 1
                 while current_month == "06" and mayjune_day in BLANK_DAYS_IN_JUNE:
                     mayjune_day += 1
+                if current_month == '06' and mayjune_day == 31:
+                    continue
                 if mayjune_day > 31:
                     continue
                 feasts.append({
@@ -403,11 +420,11 @@ with open("src/lff2018.txt", "r", encoding="utf-8") as f:
                 # in the index. So set up an additional record for it.
                 if feast.find(" or") > 0:
                     previous_record["title"] = feast.split(", or")[0]
-                    feasts.append(previous_record)
                     previous_record = {
                         "mm": current_month,
                         "dd": current_day,
-                        "title": ""
+                        "title": "",
+                        "major_feast": major_feast
                         }
                     feasts.append(previous_record)
             else:
